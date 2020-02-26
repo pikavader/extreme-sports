@@ -1,0 +1,141 @@
+ierarhie fisiere:
+    (p) extremeClient
+        (c) ExtremeClientAPI
+        (c) ExtremeAdminAPI
+        (c) ExtremeUserAPI
+    (p) extremeServer
+        (c) ExtremeThread
+        (c) AdminThread
+        (c) UserThread
+        (c) OperationTypeAdmin
+        (c) OperationTypeUser
+        (c) ResponseType
+        (c) ExtremeServer
+        (c) DataBaseHandler
+        (c) Hierarchy
+    (p) testClient
+        (c) MainAdminTest
+        (c) MainUserTest
+    (p) testServer
+        (c) MainServerTest
+
+functionalitate:
+    
+    ExtremeClientAPI - operatii de baza ale clientului de tip:
+        - Init & InternalInit pentru conectare la server
+        - SendPackage - trimitere pachet de orice tip
+        - CheckReceived - neblocanta, verifica daca s-a primit un raspuns de
+        la server
+        - CloseConnection - inchide conexiunea cu serverul
+    ExtremeAdminAPI
+        - implementeaza operatiile de get, add, remove si update ale clientului
+    ExtremeUserAPI
+        - implementeaza get pentru sporturi multiple pentru client
+
+
+    Hierarchy
+        - implementeaza ierarhia in care sunt stocate toate datele de forma
+        mai multe sporturi, fiecare sport include mai multe tari, fiecare tara
+        include mai multe regiuni, fiecare regiune include mai multe orase,
+        fiecare oras include intervale diferite ce au preturi diferite 
+        asociate;
+        - metode importante:
+            - Add        -|
+            - Get        -+- utilizate doar pentru Admin
+            - Remove     -|
+            - Update     -|
+            - GetAndSort - utilizata doar pentru User
+        - contine clasele:
+            - Sport -> {Country}
+            - Country -> {Regions}
+            - Region -> {Cities}
+            - City -> {Intervals}, cu urmatoarele metode importante
+                - FindExactOverlap(interval) ce cauta o combinatie de intervale
+                cunoscute care combinate sa acopere intervalul primit ca 
+                argument
+                - AddToPeriods(interval) ce adauga un interval astfel incat sa
+                nu existe un overlap cu alt interval deja salvat
+                - UpdatePeriods(interval) ce schimba pretul intersectiilor de
+                intervale dintre cele cunoscute si cel primit ca argument la
+                pretul salvat in intervalul primit ca argument
+                - AddToIntervalsAndUpdate(interval) ce suprascrie
+                intersectiile de intervale cunoscute cu cel primit ca argument
+                cu cel primit ca argument
+            - Interval -> start date, end date, price; cu urmatoarele metode
+             importante
+                - CheckOverlap(interval) ce verifica daca exista un overlap 
+                intre intervalul curent si cel primit ca argument
+                - SubtractAndGetIntersection(interval) ce returneaza maxim 3
+                intervale, primul fiind perioada de dinaintea intersectiei,
+                al doilea fiind intersectia si al 3 lea fiind intervalul de
+                dupa intersectie
+                - CreateNewIntervalsFromOverlapsAndUpdatePrice(interval) ce
+                combina intervalul curent cu cel primit ca argument, iar 
+                intervalul de intersectie este updatat la pretul nou
+                - UpdatePriceForOverlappingInterval(interval) ce face update
+                intersectiei intervalelor la pretul intervalului nou
+
+    DataBaseHandler
+        - contine o clasa OperationClass ce stocheaza o operatie pentru Admin
+        sau User
+        - AdminQueue - coada pentru operatii de administrator
+        - UserQueue  - coada pentru operatii de utilizator
+        - implementeaza urmatoarele metode thread-safe de opereaza pe cele
+        doua cozi(folosesc algoritm de tip producer-consumer in ambele
+        cazuri):
+            - AddOperationAdmin(OperationClass) ce adauga o operatie in coada
+            de operatii de administrator
+            - GetOperationAdmin() ce returneaza o operatie din coada de
+            operatii de administrator sau null daca nu exista
+            - AddOperationUser(OperationClass) ce adauga o operatie in coada
+            de operatii de utilizator
+            - GetOperationUser() ce returneaza o operatie din coada de
+            operatii de administrator sa null daca nu exista
+        - o ierarhie de tip Hierarchy
+        - implementeaza urmatoarele metode thread-safe ce opereaza pe ierarhie
+        (folosind reader-writer):
+            - BeginHierarchyReading() si EndHierarchyReading() - reader
+            - BeginHierarchyWriting() si EndHierarchyWriting() - writer
+            - AddData    -|
+            - GetData    -+ apelate de threaduri de administrator
+            - RemData    -|
+            - UpdateData -|
+            - GetForUser - apelata de threaduri de useri
+
+    ExtremeThread
+        - clasa ce mosteneste Thread si este mostenita de AdminThread si 
+        UserThread
+
+    AdminThread
+        - ia instante de OperationClass din AdminQueue, le parseaza si executa
+        operatiile si apoi trimite rezultatul mai departe catre clientul care
+        a facut cererea
+
+    UserThread
+        - ia instante de OperationClass din UserQueue, le parseaza si executa
+        operatiile si apoi trimite rezultatul mai departe catre clientul care
+        a facut cererea
+
+    ExtremeServer
+        - contine doua threadpool-uri pentru operatii ale administratorilor
+        (AdminThread[]) si pentru operatii alea userilor(UserThread[]) si o
+        instanta a DataBaseHandler
+        - implementeaza un server neblocant
+        - are urmatoarele metode importante:
+            - Start - ce porneste serverul
+            - Stop - ce opreste serverul
+            - Update - ce trebuie rulata constant pentru a verifica daca
+            exista clienti noi sau au fost primite pachete noi; daca se
+            primeste un pachet se decide daca este o operatie de administrator
+            sau de utilizator si se apeleaza metodele 
+            DataBaseHandler.AddOperationUser sau
+            DataBaseHandler.AddOperationAdmin
+
+    ResponseType
+        - clasa cu coduri returnate in caz de eroare sau succes
+
+    OperationTypeAdmin
+        - clasa cu tipuri de operatii pentru administrator
+
+    OperationTypeUser
+        - clasa cu tipuri de operatii pentru useri
